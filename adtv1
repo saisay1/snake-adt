@@ -328,6 +328,74 @@ end
 -- ITEMS TAB — controls
 -- ============================================================
 
+-- ============================================================
+-- MAIN TAB — Player Speed
+-- ============================================================
+
+local speedSection = makeLabel(mainTab, "◈ Player Speed", 0.04, 0.04, 0.35, 0.07)
+speedSection.TextXAlignment = Enum.TextXAlignment.Left
+speedSection.BackgroundTransparency = 1
+speedSection.TextColor3 = C.accent
+speedSection.Font = Enum.Font.GothamBold
+
+local speedLabel = makeLabel(mainTab, "Walk Speed", 0.04, 0.13, 0.2, 0.09)
+speedLabel.TextXAlignment = Enum.TextXAlignment.Center
+
+local speedBox = makeTextBox(mainTab, "16", 0.26, 0.13, 0.15, 0.09)
+speedBox.PlaceholderText = "16"
+
+local speedApply = makeBtn(mainTab, "✔ Apply", 0.43, 0.13, 0.14, 0.09, C.accentDim)
+
+local speedStatus = makeLabel(mainTab, "Default: 16", 0.04, 0.24, 0.53, 0.07)
+speedStatus.BackgroundTransparency = 1
+speedStatus.TextColor3 = C.textDim
+speedStatus.TextXAlignment = Enum.TextXAlignment.Left
+
+local speedResetBtn = makeBtn(mainTab, "↺ Reset", 0.04, 0.33, 0.14, 0.09, C.panel)
+
+local function applySpeed(val)
+	local num = tonumber(val)
+	if not num then
+		speedStatus.Text = "⚠ Введи число!"
+		speedStatus.TextColor3 = C.danger
+		return
+	end
+	num = math.clamp(num, 0, 500)
+	local char = plr.Character or plr.CharacterAdded:Wait()
+	local hum = char:FindFirstChildWhichIsA("Humanoid")
+	if hum then
+		hum.WalkSpeed = num
+		speedBox.Text = tostring(num)
+		speedStatus.Text = "✔ Скорость: " .. num
+		speedStatus.TextColor3 = C.success
+		TweenService:Create(speedStatus, TweenInfo.new(2), {TextColor3 = C.textDim}):Play()
+	else
+		speedStatus.Text = "⚠ Humanoid не найден"
+		speedStatus.TextColor3 = C.danger
+	end
+end
+
+speedApply.Activated:Connect(function()
+	applySpeed(speedBox.Text)
+end)
+
+speedBox.FocusLost:Connect(function(enterPressed)
+	if enterPressed then applySpeed(speedBox.Text) end
+end)
+
+speedResetBtn.Activated:Connect(function()
+	applySpeed("16")
+end)
+
+-- Обновляем скорость при respawn
+plr.CharacterAdded:Connect(function(char)
+	local hum = char:WaitForChild("Humanoid")
+	local num = tonumber(speedBox.Text) or 16
+	hum.WalkSpeed = num
+end)
+
+
+
 -- Section label: Spheres
 local sphereSection = makeLabel(itemsTab, "◈ Spheres", 0.02, 0.02, 0.2, 0.06)
 sphereSection.TextXAlignment = Enum.TextXAlignment.Left
