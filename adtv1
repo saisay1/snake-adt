@@ -688,7 +688,7 @@ local function GetAllObjects()
 
 	-- НПС имеют Humanoid внутри — пропускаем их
 	-- Также пропускаем по имени (Mutant и подобные)
-	local EXCLUDED_NAMES = { ["mutant"] = true, ["buff"] = true, ["sprinter"] = true, ["ConfettiBombMutant"] = true, ["BillboardSign"] }
+	local EXCLUDED_NAMES = { ["mutant"] = true, ["buff"] = true, ["sprinter"] = true, ["confettibombmutant"] = true, ["billboardsign"] = true }
 
 	local function shouldSkip(obj)
 		if obj:FindFirstChildWhichIsA("Humanoid", true) then return true end
