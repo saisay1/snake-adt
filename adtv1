@@ -687,8 +687,13 @@ local function GetAllObjects()
 	local seen = {}
 
 	-- НПС имеют Humanoid внутри — пропускаем их
-	local function hasHumanoid(obj)
-		return obj:FindFirstChildWhichIsA("Humanoid", true) ~= nil
+	-- Также пропускаем по имени (Mutant и подобные)
+	local EXCLUDED_NAMES = { ["mutant"] = true, ["buff"] = true, ["sprinter"] = true }
+
+	local function shouldSkip(obj)
+		if obj:FindFirstChildWhichIsA("Humanoid", true) then return true end
+		if EXCLUDED_NAMES[obj.Name:lower()] then return true end
+		return false
 	end
 
 	-- Забираем все Model/Tool из контейнера с primaryPart
@@ -696,7 +701,7 @@ local function GetAllObjects()
 		if not container then return end
 		for _, obj in ipairs(container:GetDescendants()) do
 			if (obj:IsA("Model") or obj:IsA("Tool")) and not seen[obj] and not playerModels[obj] then
-				if hasHumanoid(obj) then continue end -- пропускаем НПС
+				if shouldSkip(obj) then continue end -- пропускаем НПС и исключения
 				-- Найдём primary part
 				local pp = obj.PrimaryPart
 				if not pp then
@@ -757,7 +762,7 @@ local function GetAllObjects()
 end
 
 local function bringObjectToPlayer(obj)
-	local targetCFrame = CFrame.new(HumanoidRootPart.Position + Vector3.new(0, 4, 0))
+	local targetCFrame = CFrame.new(HumanoidRootPart.Position)
 	if obj:IsA("Model") then
 		local pp = obj.PrimaryPart
 		if pp then
@@ -909,8 +914,8 @@ bringall.Activated:Connect(function()
 			end
 		end
 		if pp then
-			local behind = Vector3.new(0, 4, 0)
-			obj:SetPrimaryPartCFrame(CFrame.new(HumanoidRootPart.Position + behind))
+			
+			obj:SetPrimaryPartCFrame(CFrame.new(HumanoidRootPart.Position))
 			count += 1
 		end
 	end
@@ -942,8 +947,8 @@ bringloop.Activated:Connect(function()
 					end
 					if pp then
 						pp.Anchored = false
-						local behind = Vector3.new(0, 4, 0)
-						obj:SetPrimaryPartCFrame(CFrame.new(HumanoidRootPart.Position + behind))
+						
+						obj:SetPrimaryPartCFrame(CFrame.new(HumanoidRootPart.Position))
 						count += 1
 					end
 				end
@@ -1019,8 +1024,8 @@ bringallof1.Activated:Connect(function()
 				end
 			end
 			if pp then
-				local behind = Vector3.new(0, 4, 0)
-				obj:SetPrimaryPartCFrame(CFrame.new(HumanoidRootPart.Position + behind))
+				
+				obj:SetPrimaryPartCFrame(CFrame.new(HumanoidRootPart.Position))
 				count += 1
 			end
 		end
