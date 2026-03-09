@@ -597,9 +597,12 @@ end
 
 -- ============================================================
 -- GET ALL PICKUPABLE OBJECTS
--- Метод 1: наличие "Handle" (BasePart) — стандартный Tool
--- Метод 2: наличие ProximityPrompt внутри объекта (подбор по F)
--- Постройки, дороги, декор — ни того ни другого не имеют.
+-- Берём ВСЁ из workspace КРОМЕ:
+--   - Terrain
+--   - объектов внутри "Map" (постройки, дороги)
+--   - объектов внутри "RoadPrefabs"
+-- Берём ВСЁ из "BuildingItemStorage" (предметы которые можно взять)
+-- Персонажи игроков тоже пропускаются.
 -- ============================================================
 
 local function getPlayerModels()
@@ -610,60 +613,76 @@ local function getPlayerModels()
 	return set
 end
 
--- Возвращает true если объект является подбираемым
-local function isPickupable(obj)
-	-- Метод 1: есть Handle (стандартный Tool / weapon)
-	local handle = obj:FindFirstChild("Handle", true)
-	if handle and handle:IsA("BasePart") then return true, handle end
-
-	-- Метод 2: есть ProximityPrompt (предмет с подбором по F/E)
-	local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
-	if prompt then
-		-- Находим BasePart к которому привязан промпт — это root предмета
-		local rootPart = prompt.Parent
-		if rootPart and rootPart:IsA("BasePart") then
-			return true, rootPart
-		end
-		-- Промпт внутри модели — ищем любой BasePart
-		local anyPart = obj:FindFirstChildWhichIsA("BasePart", true)
-		if anyPart then return true, anyPart end
-	end
-
-	return false, nil
-end
-
 local function GetAllObjects()
 	local playerModels = getPlayerModels()
 	local collected = {}
 	local seen = {}
 
-	local function scan(obj)
-		if playerModels[obj] then return end
-		if obj == Camera then return end
-		if obj:IsA("Terrain") then return end
+	-- НПС имеют Humanoid внутри — пропускаем их
+	local function hasHumanoid(obj)
+		return obj:FindFirstChildWhichIsA("Humanoid", true) ~= nil
+	end
 
-		if obj:IsA("Model") or obj:IsA("Tool") then
-			if playerModels[obj] then return end
-
-			local ok, rootPart = isPickupable(obj)
-			if ok and rootPart and not seen[obj] then
-				seen[obj] = true
-				obj.PrimaryPart = rootPart
-				table.insert(collected, obj)
-				return -- не лезем внутрь — модель уже добавлена
-			end
-
-			-- Не нашли — сканируем детей на случай вложенных моделей
-			for _, child in ipairs(obj:GetChildren()) do
-				if child:IsA("Model") or child:IsA("Tool") then
-					scan(child)
+	-- Забираем все Model/Tool из контейнера с primaryPart
+	local function collectFromContainer(container)
+		if not container then return end
+		for _, obj in ipairs(container:GetDescendants()) do
+			if (obj:IsA("Model") or obj:IsA("Tool")) and not seen[obj] and not playerModels[obj] then
+				if hasHumanoid(obj) then continue end -- пропускаем НПС
+				-- Найдём primary part
+				local pp = obj.PrimaryPart
+				if not pp then
+					pp = obj:FindFirstChildWhichIsA("BasePart", true)
+					if pp then obj.PrimaryPart = pp end
+				end
+				if pp then
+					seen[obj] = true
+					table.insert(collected, obj)
 				end
 			end
 		end
 	end
 
+	-- Список имён папок которые надо полностью ПРОПУСТИТЬ
+	local skipFolders = {}
+	local mapFolder      = workspace:FindFirstChild("Map")
+	local roadFolder     = workspace:FindFirstChild("RoadPrefabs")
+	if mapFolder  then skipFolders[mapFolder]  = true end
+	if roadFolder then skipFolders[roadFolder] = true end
+
+	-- Также пропускаем персонажей
+	for model in pairs(playerModels) do
+		skipFolders[model] = true
+	end
+
+	-- Сначала берём всё из BuildingItemStorage отдельно
+	local storage = workspace:FindFirstChild("BuildingItemStorage")
+	collectFromContainer(storage)
+	if storage then skipFolders[storage] = true end -- чтобы не дублировать ниже
+
+	-- Теперь сканируем остальной workspace
 	for _, child in ipairs(workspace:GetChildren()) do
-		scan(child)
+		if child:IsA("Terrain") then continue end
+		if child == Camera then continue end
+		if skipFolders[child] then continue end
+
+		-- Если это Model/Tool напрямую в workspace
+		if (child:IsA("Model") or child:IsA("Tool")) and not playerModels[child] then
+			local pp = child.PrimaryPart
+			if not pp then
+				pp = child:FindFirstChildWhichIsA("BasePart", true)
+				if pp then child.PrimaryPart = pp end
+			end
+			if pp and not seen[child] then
+				seen[child] = true
+				table.insert(collected, child)
+			end
+		end
+
+		-- Папки/контейнеры — сканируем содержимое
+		if child:IsA("Folder") or child:IsA("Model") then
+			collectFromContainer(child)
+		end
 	end
 
 	return collected
