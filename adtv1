@@ -904,7 +904,7 @@ end)
 -- ============================================================
 -- BRING ALL
 -- ============================================================
-bringall.Activated:Connect(function()
+local function doBringAll()
 	local models = GetValidObjects()
 	if #models == 0 then warn("No valid objects found.") return end
 	local count = 0
@@ -916,13 +916,14 @@ bringall.Activated:Connect(function()
 			end
 		end
 		if pp then
-			
 			obj:SetPrimaryPartCFrame(CFrame.new(HumanoidRootPart.Position))
 			count += 1
 		end
 	end
 	print("[BringAll] Brought " .. count .. " items.")
-end)
+end
+
+bringall.Activated:Connect(doBringAll)
 
 -- ============================================================
 -- BRING LOOP (every 1s → player)
@@ -1293,7 +1294,9 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	if input.KeyCode == Enum.KeyCode.RightShift then
 		uiVisible = not uiVisible
 		outerFrame.Visible = uiVisible
-		-- Also close the confirm dialog if it was open
 		if not uiVisible then areyousure.Visible = false end
+	end
+	if input.KeyCode == Enum.KeyCode.N then
+		doBringAll()
 	end
 end)
