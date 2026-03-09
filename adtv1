@@ -353,15 +353,25 @@ local bringalltosphere      = makeBtn(itemsTab, "CFrame → Sphere",    0.02,  0
 local bringallof1           = makeBtn(itemsTab, "Bring Selected",     0.22,  0.40, 0.18, 0.09)
 local bringallselectedtosphere = makeBtn(itemsTab, "Selected → Sphere", 0.42, 0.40, 0.18, 0.09)
 
+-- Section label: Bring Everything
+local bringEverythingSection = makeLabel(itemsTab, "◈ Bring Everything", 0.02, 0.52, 0.3, 0.06)
+bringEverythingSection.TextXAlignment = Enum.TextXAlignment.Left
+bringEverythingSection.BackgroundTransparency = 1
+bringEverythingSection.TextColor3 = Color3.fromRGB(220, 120, 50)
+bringEverythingSection.Font = Enum.Font.GothamBold
+
+local bringEverything     = makeBtn(itemsTab, "☄ Bring Everything",  0.02, 0.59, 0.22, 0.09, Color3.fromRGB(140, 70, 20))
+local bringEverythingLoop = makeBtn(itemsTab, "⟳ Everything Loop",   0.26, 0.59, 0.22, 0.09, Color3.fromRGB(140, 70, 20))
+
 -- Section label: Misc
-local miscSection = makeLabel(itemsTab, "◈ Misc", 0.02, 0.52, 0.2, 0.06)
+local miscSection = makeLabel(itemsTab, "◈ Misc", 0.02, 0.71, 0.2, 0.06)
 miscSection.TextXAlignment = Enum.TextXAlignment.Left
 miscSection.BackgroundTransparency = 1
 miscSection.TextColor3 = C.accent
 miscSection.Font = Enum.Font.GothamBold
 
-local togglemobileb = makeBtn(itemsTab, "Lock Spheres",  0.02,  0.59, 0.18, 0.09)
-local unanchor      = makeBtn(itemsTab, "Unanchor All",  0.22,  0.59, 0.18, 0.09, C.panel)
+local togglemobileb = makeBtn(itemsTab, "Lock Spheres",  0.02,  0.78, 0.18, 0.09)
+local unanchor      = makeBtn(itemsTab, "Unanchor All",  0.22,  0.78, 0.18, 0.09, C.panel)
 
 -- Selected item label
 local selectedItemLabel = Instance.new("TextLabel")
@@ -586,6 +596,136 @@ for _, name in ipairs(validNames) do
 end
 
 -- ============================================================
+-- GET ALL OBJECTS (everything except terrain/floor/walls/players)
+-- ============================================================
+local IGNORE_SIZE_THRESHOLD = 200  -- parts bigger than this on any axis = floor/wall/map
+local IGNORE_NAMES = {
+	["baseplate"] = true, ["base"] = true, ["terrain"] = true,
+	["floor"] = true, ["wall"] = true, ["ceiling"] = true,
+	["ground"] = true, ["map"] = true, ["lobby"] = true,
+	["spawnlocation"] = true, ["spawn"] = true,
+}
+
+-- Collect all player character root parts for filtering
+local function getPlayerParts()
+	local parts = {}
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p.Character then
+			for _, obj in ipairs(p.Character:GetDescendants()) do
+				if obj:IsA("BasePart") then parts[obj] = true end
+			end
+		end
+	end
+	return parts
+end
+
+local function GetAllObjects()
+	local playerParts = getPlayerParts()
+	local collected = {}  -- { part or model, rootPart }
+	local seen = {}
+
+	local function isTooBig(part)
+		local s = part.Size
+		return s.X > IGNORE_SIZE_THRESHOLD or s.Y > IGNORE_SIZE_THRESHOLD or s.Z > IGNORE_SIZE_THRESHOLD
+	end
+
+	local function isIgnoredName(name)
+		return IGNORE_NAMES[name:lower()] ~= nil
+	end
+
+	-- Walk top-level children of workspace
+	for _, child in ipairs(workspace:GetChildren()) do
+		-- Skip terrain
+		if child:IsA("Terrain") then continue end
+		-- Skip player characters
+		if child:IsA("Model") then
+			local isPlayer = false
+			for _, p in ipairs(Players:GetPlayers()) do
+				if p.Character == child then isPlayer = true break end
+			end
+			if isPlayer then continue end
+			-- Skip map/lobby models by name
+			if isIgnoredName(child.Name) then continue end
+		end
+		-- Skip camera
+		if child == Camera then continue end
+
+		-- Collect loose BaseParts at top level
+		if child:IsA("BasePart") then
+			if playerParts[child] then continue end
+			if isTooBig(child) then continue end
+			if isIgnoredName(child.Name) then continue end
+			if not seen[child] then
+				seen[child] = true
+				table.insert(collected, child)
+			end
+		end
+
+		-- Collect Models: find primary part or first BasePart
+		if child:IsA("Model") then
+			-- Try to find a representative part
+			local rep = child.PrimaryPart
+			if not rep then
+				for _, d in ipairs(child:GetDescendants()) do
+					if d:IsA("BasePart") and not playerParts[d] and not isTooBig(d) then
+						rep = d
+						child.PrimaryPart = d
+						break
+					end
+				end
+			end
+			if rep and not seen[child] then
+				seen[child] = true
+				table.insert(collected, child)
+			end
+		end
+
+		-- Also grab nested Models inside non-player models (tools dropped, etc.)
+		for _, desc in ipairs(child:GetDescendants()) do
+			if desc:IsA("Model") then
+				local isPlayer = false
+				for _, p in ipairs(Players:GetPlayers()) do
+					if p.Character == desc then isPlayer = true break end
+				end
+				if isPlayer then continue end
+				if isIgnoredName(desc.Name) then continue end
+				local rep = desc.PrimaryPart
+				if not rep then
+					for _, d in ipairs(desc:GetDescendants()) do
+						if d:IsA("BasePart") and not playerParts[d] and not isTooBig(d) then
+							rep = d
+							desc.PrimaryPart = d
+							break
+						end
+					end
+				end
+				if rep and not seen[desc] then
+					seen[desc] = true
+					table.insert(collected, desc)
+				end
+			end
+		end
+	end
+
+	return collected
+end
+
+local function bringObjectToPlayer(obj)
+	local targetPos = HumanoidRootPart.Position + Vector3.new(0, 3, 0)
+	local offset = Vector3.new(math.random(-6, 6), 0, math.random(-6, 6))
+	if obj:IsA("Model") then
+		local pp = obj.PrimaryPart
+		if pp then
+			pp.Anchored = false
+			obj:SetPrimaryPartCFrame(CFrame.new(targetPos + offset))
+		end
+	elseif obj:IsA("BasePart") then
+		obj.Anchored = false
+		obj.CFrame = CFrame.new(targetPos + offset)
+	end
+end
+
+-- ============================================================
 -- SCROLL LIST updater
 -- ============================================================
 task.spawn(function()
@@ -769,6 +909,46 @@ bringloop.Activated:Connect(function()
 	else
 		bringloop.Text = "⟳ Bring Loop"
 		TweenService:Create(bringloop, TweenInfo.new(0.15), {BackgroundColor3 = C.accentDim}):Play()
+	end
+end)
+
+-- ============================================================
+-- BRING EVERYTHING (one-shot)
+-- ============================================================
+bringEverything.Activated:Connect(function()
+	local objects = GetAllObjects()
+	if #objects == 0 then warn("[BringEverything] Nothing found.") return end
+	for _, obj in ipairs(objects) do
+		bringObjectToPlayer(obj)
+	end
+	print("[BringEverything] Brought " .. #objects .. " objects.")
+end)
+
+-- ============================================================
+-- BRING EVERYTHING LOOP (every 1s)
+-- ============================================================
+local bringEverythingLoopActive = false
+
+bringEverythingLoop.Activated:Connect(function()
+	bringEverythingLoopActive = not bringEverythingLoopActive
+
+	if bringEverythingLoopActive then
+		bringEverythingLoop.Text = "⏹ Stop"
+		TweenService:Create(bringEverythingLoop, TweenInfo.new(0.15), {BackgroundColor3 = C.danger}):Play()
+
+		task.spawn(function()
+			while bringEverythingLoopActive do
+				local objects = GetAllObjects()
+				for _, obj in ipairs(objects) do
+					bringObjectToPlayer(obj)
+				end
+				print("[BringEverythingLoop] Brought " .. #objects .. " objects.")
+				task.wait(1)
+			end
+		end)
+	else
+		bringEverythingLoop.Text = "⟳ Everything Loop"
+		TweenService:Create(bringEverythingLoop, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(140, 70, 20)}):Play()
 	end
 end)
 
