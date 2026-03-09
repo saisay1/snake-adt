@@ -596,10 +596,10 @@ for _, name in ipairs(validNames) do
 end
 
 -- ============================================================
--- GET ALL PICKUPABLE OBJECTS (Handle-based detection)
--- Логика: любой предмет в workspace у которого есть дочерний
--- Part с именем "Handle" — это предмет который можно взять в руки.
--- Постройки, дороги, кактусы-декор Handle не имеют.
+-- GET ALL PICKUPABLE OBJECTS
+-- Метод 1: наличие "Handle" (BasePart) — стандартный Tool
+-- Метод 2: наличие ProximityPrompt внутри объекта (подбор по F)
+-- Постройки, дороги, декор — ни того ни другого не имеют.
 -- ============================================================
 
 local function getPlayerModels()
@@ -610,63 +610,59 @@ local function getPlayerModels()
 	return set
 end
 
+-- Возвращает true если объект является подбираемым
+local function isPickupable(obj)
+	-- Метод 1: есть Handle (стандартный Tool / weapon)
+	local handle = obj:FindFirstChild("Handle", true)
+	if handle and handle:IsA("BasePart") then return true, handle end
+
+	-- Метод 2: есть ProximityPrompt (предмет с подбором по F/E)
+	local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
+	if prompt then
+		-- Находим BasePart к которому привязан промпт — это root предмета
+		local rootPart = prompt.Parent
+		if rootPart and rootPart:IsA("BasePart") then
+			return true, rootPart
+		end
+		-- Промпт внутри модели — ищем любой BasePart
+		local anyPart = obj:FindFirstChildWhichIsA("BasePart", true)
+		if anyPart then return true, anyPart end
+	end
+
+	return false, nil
+end
+
 local function GetAllObjects()
 	local playerModels = getPlayerModels()
 	local collected = {}
 	local seen = {}
 
-	-- Рекурсивно сканируем workspace в поисках моделей с Handle
 	local function scan(obj)
-		-- Пропускаем персонажей игроков и их потомков
 		if playerModels[obj] then return end
+		if obj == Camera then return end
+		if obj:IsA("Terrain") then return end
 
-		if obj:IsA("Model") then
-			-- Пропускаем персонажей
+		if obj:IsA("Model") or obj:IsA("Tool") then
 			if playerModels[obj] then return end
 
-			-- Ищем Handle среди прямых детей модели
-			local handle = obj:FindFirstChild("Handle")
-			if handle and handle:IsA("BasePart") then
-				-- Это подбираемый предмет!
-				if not seen[obj] then
-					seen[obj] = true
-					-- Убедимся что PrimaryPart = Handle
-					obj.PrimaryPart = handle
-					table.insert(collected, obj)
-				end
-				return -- не лезем внутрь дальше
-			end
-
-			-- Если Handle не у прямого ребёнка — ищем глубже
-			-- (некоторые игры вкладывают Tool -> Model -> Handle)
-			local deepHandle = obj:FindFirstChild("Handle", true)
-			if deepHandle and deepHandle:IsA("BasePart") then
-				if not seen[obj] then
-					seen[obj] = true
-					obj.PrimaryPart = deepHandle
-					table.insert(collected, obj)
-				end
-				return
-			end
-
-			-- Нет Handle — сканируем детей в поиске вложенных моделей
-			for _, child in ipairs(obj:GetChildren()) do
-				scan(child)
-			end
-
-		elseif obj:IsA("Tool") then
-			-- Tool тоже может лежать в workspace напрямую
-			local handle = obj:FindFirstChild("Handle")
-			if handle and handle:IsA("BasePart") and not seen[obj] then
+			local ok, rootPart = isPickupable(obj)
+			if ok and rootPart and not seen[obj] then
 				seen[obj] = true
+				obj.PrimaryPart = rootPart
 				table.insert(collected, obj)
+				return -- не лезем внутрь — модель уже добавлена
+			end
+
+			-- Не нашли — сканируем детей на случай вложенных моделей
+			for _, child in ipairs(obj:GetChildren()) do
+				if child:IsA("Model") or child:IsA("Tool") then
+					scan(child)
+				end
 			end
 		end
 	end
 
 	for _, child in ipairs(workspace:GetChildren()) do
-		if child:IsA("Terrain") then continue end
-		if child == Camera then continue end
 		scan(child)
 	end
 
