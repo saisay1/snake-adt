@@ -718,10 +718,12 @@ local function GetAllObjects()
 
 	-- Список имён папок которые надо полностью ПРОПУСТИТЬ
 	local skipFolders = {}
-	local mapFolder      = workspace:FindFirstChild("Map")
-	local roadFolder     = workspace:FindFirstChild("RoadPrefabs")
-	if mapFolder  then skipFolders[mapFolder]  = true end
-	if roadFolder then skipFolders[roadFolder] = true end
+	local mapFolder       = workspace:FindFirstChild("Map")
+	local roadFolder      = workspace:FindFirstChild("RoadPrefabs")
+	local billboardFolder = workspace:FindFirstChild("BillBoardSign")
+	if mapFolder       then skipFolders[mapFolder]       = true end
+	if roadFolder      then skipFolders[roadFolder]      = true end
+	if billboardFolder then skipFolders[billboardFolder] = true end
 
 	-- Также пропускаем персонажей
 	for model in pairs(playerModels) do
