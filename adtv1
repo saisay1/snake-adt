@@ -1,0 +1,1067 @@
+local Players = game:GetService("Players")
+local plr = Players.LocalPlayer
+local PlayerGui = game:GetService("CoreGui") or plr.PlayerGui
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+local Character = plr.Character or plr.CharacterAdded:Wait()
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
+
+-- ============================================================
+-- COLORS / THEME
+-- ============================================================
+local C = {
+	bg          = Color3.fromRGB(15, 15, 20),
+	panel       = Color3.fromRGB(22, 22, 30),
+	card        = Color3.fromRGB(30, 30, 40),
+	cardHover   = Color3.fromRGB(42, 42, 58),
+	accent      = Color3.fromRGB(100, 80, 220),
+	accentHover = Color3.fromRGB(130, 105, 255),
+	accentDim   = Color3.fromRGB(60, 45, 140),
+	danger      = Color3.fromRGB(200, 50, 60),
+	dangerHover = Color3.fromRGB(230, 70, 80),
+	success     = Color3.fromRGB(50, 180, 100),
+	text        = Color3.fromRGB(230, 230, 240),
+	textDim     = Color3.fromRGB(140, 140, 160),
+	border      = Color3.fromRGB(50, 50, 70),
+	tabActive   = Color3.fromRGB(100, 80, 220),
+	tabInactive = Color3.fromRGB(30, 30, 40),
+	scrollBar   = Color3.fromRGB(80, 65, 180),
+}
+
+local function applyHover(btn, normal, hover)
+	btn.MouseEnter:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundColor3 = hover}):Play()
+	end)
+	btn.MouseLeave:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundColor3 = normal}):Play()
+	end)
+end
+
+local function addStroke(obj, color, thickness)
+	local s = Instance.new("UIStroke")
+	s.Color = color or C.border
+	s.Thickness = thickness or 1
+	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	s.Parent = obj
+	return s
+end
+
+-- ============================================================
+-- SCREEN GUI
+-- ============================================================
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "ValidObjectsUI"
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = PlayerGui
+
+-- ============================================================
+-- OUTER FRAME (main window)
+-- ============================================================
+local outerFrame = Instance.new("Frame")
+outerFrame.Name = "MainWindow"
+outerFrame.Size = UDim2.fromScale(0.58, 0.68)
+outerFrame.Position = UDim2.fromScale(0.21, 0.16)
+outerFrame.BackgroundColor3 = C.bg
+outerFrame.BorderSizePixel = 0
+outerFrame.Parent = screenGui
+Instance.new("UICorner", outerFrame).CornerRadius = UDim.new(0, 10)
+addStroke(outerFrame, C.border, 1.5)
+
+-- Title bar
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 36)
+titleBar.Position = UDim2.new(0, 0, 0, 0)
+titleBar.BackgroundColor3 = C.panel
+titleBar.BorderSizePixel = 0
+titleBar.ZIndex = 2
+titleBar.Parent = outerFrame
+Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 10)
+
+-- Fix bottom corners of title bar (make them square to merge with content)
+local titleFix = Instance.new("Frame")
+titleFix.Size = UDim2.new(1, 0, 0.5, 0)
+titleFix.Position = UDim2.new(0, 0, 0.5, 0)
+titleFix.BackgroundColor3 = C.panel
+titleFix.BorderSizePixel = 0
+titleFix.ZIndex = 2
+titleFix.Parent = titleBar
+
+local accentLine = Instance.new("Frame")
+accentLine.Size = UDim2.new(1, 0, 0, 2)
+accentLine.Position = UDim2.new(0, 0, 1, -2)
+accentLine.BackgroundColor3 = C.accent
+accentLine.BorderSizePixel = 0
+accentLine.ZIndex = 3
+accentLine.Parent = titleBar
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(0.7, 0, 1, 0)
+titleLabel.Position = UDim2.new(0.02, 0, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "  VapeV4  |  Item Manager"
+titleLabel.TextColor3 = C.text
+titleLabel.TextScaled = true
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.ZIndex = 4
+titleLabel.Parent = titleBar
+
+local hintLabel = Instance.new("TextLabel")
+hintLabel.Size = UDim2.new(0.28, 0, 1, 0)
+hintLabel.Position = UDim2.new(0.5, 0, 0, 0)
+hintLabel.BackgroundTransparency = 1
+hintLabel.Text = "RShift — toggle"
+hintLabel.TextColor3 = C.textDim
+hintLabel.TextScaled = true
+hintLabel.Font = Enum.Font.Gotham
+hintLabel.TextXAlignment = Enum.TextXAlignment.Center
+hintLabel.ZIndex = 4
+hintLabel.Parent = titleBar
+
+-- Close button
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 28, 0, 28)
+closeButton.Position = UDim2.new(1, -32, 0, 4)
+closeButton.BackgroundColor3 = C.danger
+closeButton.Text = "✕"
+closeButton.TextColor3 = C.text
+closeButton.TextScaled = true
+closeButton.Font = Enum.Font.GothamBold
+closeButton.ZIndex = 5
+closeButton.Parent = titleBar
+Instance.new("UICorner", closeButton).CornerRadius = UDim.new(0, 6)
+applyHover(closeButton, C.danger, C.dangerHover)
+
+-- ============================================================
+-- SIDEBAR (tab buttons)
+-- ============================================================
+local sidebar = Instance.new("Frame")
+sidebar.Name = "Sidebar"
+sidebar.Size = UDim2.new(0.13, 0, 1, -36)
+sidebar.Position = UDim2.new(0, 0, 0, 36)
+sidebar.BackgroundColor3 = C.panel
+sidebar.BorderSizePixel = 0
+sidebar.Parent = outerFrame
+Instance.new("UICorner", sidebar).CornerRadius = UDim.new(0, 8)
+
+-- Fix top corners of sidebar
+local sidebarTopFix = Instance.new("Frame")
+sidebarTopFix.Size = UDim2.new(1, 0, 0.05, 0)
+sidebarTopFix.Position = UDim2.new(0, 0, 0, 0)
+sidebarTopFix.BackgroundColor3 = C.panel
+sidebarTopFix.BorderSizePixel = 0
+sidebarTopFix.Parent = sidebar
+
+local sidebarLayout = Instance.new("UIListLayout")
+sidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+sidebarLayout.Padding = UDim.new(0, 4)
+sidebarLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+sidebarLayout.Parent = sidebar
+
+local sidebarPad = Instance.new("UIPadding")
+sidebarPad.PaddingTop = UDim.new(0, 8)
+sidebarPad.PaddingLeft = UDim.new(0, 6)
+sidebarPad.PaddingRight = UDim.new(0, 6)
+sidebarPad.Parent = sidebar
+
+-- ============================================================
+-- CONTENT AREA
+-- ============================================================
+local contentArea = Instance.new("Frame")
+contentArea.Name = "ContentArea"
+contentArea.Size = UDim2.new(0.87, 0, 1, -36)
+contentArea.Position = UDim2.new(0.13, 0, 0, 36)
+contentArea.BackgroundColor3 = C.card
+contentArea.BorderSizePixel = 0
+contentArea.Parent = outerFrame
+Instance.new("UICorner", contentArea).CornerRadius = UDim.new(0, 8)
+
+-- ============================================================
+-- TAB SYSTEM
+-- ============================================================
+local activeTabBtn = nil
+
+local function hideAllTabs()
+	for _, frame in ipairs(contentArea:GetChildren()) do
+		if frame:IsA("Frame") and frame.Name:find("TabFrame") then
+			frame.Visible = false
+		end
+	end
+end
+
+local function createTabFrame(name)
+	local frame = Instance.new("Frame")
+	frame.Name = name .. "TabFrame"
+	frame.Size = UDim2.fromScale(1, 1)
+	frame.Position = UDim2.fromScale(0, 0)
+	frame.BackgroundTransparency = 1
+	frame.BorderSizePixel = 0
+	frame.Visible = false
+	frame.Parent = contentArea
+	return frame
+end
+
+local mainTab        = createTabFrame("Main")
+local itemsTab       = createTabFrame("Items")
+local playerTab      = createTabFrame("Players")
+local placeholder1   = createTabFrame("Placeholder1")
+local placeholder2   = createTabFrame("Placeholder2")
+local placeholder3   = createTabFrame("Placeholder3")
+mainTab.Visible = true
+
+local tabDefs = {
+	{ name = "⌂  Main",        target = mainTab },
+	{ name = "◈  Items",       target = itemsTab },
+	{ name = "⚇  Players",     target = playerTab },
+	{ name = "⊕  Get Name",    target = placeholder1 },
+	{ name = "□  Tab 5",       target = placeholder2 },
+	{ name = "□  Tab 6",       target = placeholder3 },
+}
+
+for i, info in ipairs(tabDefs) do
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(1, 0, 0, 32)
+	btn.BackgroundColor3 = i == 1 and C.tabActive or C.tabInactive
+	btn.Text = info.name
+	btn.TextColor3 = i == 1 and C.text or C.textDim
+	btn.TextScaled = true
+	btn.Font = Enum.Font.Gotham
+	btn.TextXAlignment = Enum.TextXAlignment.Left
+	btn.LayoutOrder = i
+	btn.Parent = sidebar
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0, 8)
+	pad.Parent = btn
+
+	if i == 1 then activeTabBtn = btn end
+
+	btn.Activated:Connect(function()
+		hideAllTabs()
+		info.target.Visible = true
+		if activeTabBtn then
+			TweenService:Create(activeTabBtn, TweenInfo.new(0.12), {
+				BackgroundColor3 = C.tabInactive,
+				TextColor3 = C.textDim
+			}):Play()
+		end
+		TweenService:Create(btn, TweenInfo.new(0.12), {
+			BackgroundColor3 = C.tabActive,
+			TextColor3 = C.text
+		}):Play()
+		activeTabBtn = btn
+	end)
+
+	btn.MouseEnter:Connect(function()
+		if btn ~= activeTabBtn then
+			TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = C.cardHover}):Play()
+		end
+	end)
+	btn.MouseLeave:Connect(function()
+		if btn ~= activeTabBtn then
+			TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = C.tabInactive}):Play()
+		end
+	end)
+end
+
+-- ============================================================
+-- HELPER: styled button factory
+-- ============================================================
+local function makeBtn(parent, text, x, y, w, h, color)
+	w = w or 0.13
+	h = h or 0.09
+	color = color or C.accentDim
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.fromScale(w, h)
+	btn.Position = UDim2.fromScale(x, y)
+	btn.BackgroundColor3 = color
+	btn.Text = text
+	btn.TextColor3 = C.text
+	btn.TextScaled = true
+	btn.Font = Enum.Font.Gotham
+	btn.Parent = parent
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+	addStroke(btn, C.border, 1)
+	applyHover(btn, color, C.cardHover)
+	return btn
+end
+
+local function makeLabel(parent, text, x, y, w, h)
+	local lbl = Instance.new("TextLabel")
+	lbl.Size = UDim2.fromScale(w or 0.13, h or 0.09)
+	lbl.Position = UDim2.fromScale(x, y)
+	lbl.BackgroundColor3 = C.panel
+	lbl.Text = text
+	lbl.TextColor3 = C.textDim
+	lbl.TextScaled = true
+	lbl.Font = Enum.Font.Gotham
+	lbl.Parent = parent
+	Instance.new("UICorner", lbl).CornerRadius = UDim.new(0, 6)
+	return lbl
+end
+
+local function makeTextBox(parent, text, x, y, w, h)
+	local tb = Instance.new("TextBox")
+	tb.Size = UDim2.fromScale(w or 0.1, h or 0.09)
+	tb.Position = UDim2.fromScale(x, y)
+	tb.BackgroundColor3 = C.panel
+	tb.Text = text
+	tb.TextColor3 = C.text
+	tb.TextScaled = true
+	tb.Font = Enum.Font.Gotham
+	tb.ClearTextOnFocus = false
+	tb.Parent = parent
+	Instance.new("UICorner", tb).CornerRadius = UDim.new(0, 6)
+	addStroke(tb, C.accent, 1)
+	return tb
+end
+
+-- ============================================================
+-- ITEMS TAB — controls
+-- ============================================================
+
+-- Section label: Spheres
+local sphereSection = makeLabel(itemsTab, "◈ Spheres", 0.02, 0.02, 0.2, 0.06)
+sphereSection.TextXAlignment = Enum.TextXAlignment.Left
+sphereSection.BackgroundTransparency = 1
+sphereSection.TextColor3 = C.accent
+sphereSection.Font = Enum.Font.GothamBold
+
+local toggleButton    = makeBtn(itemsTab, "TP Spheres",        0.02, 0.09, 0.18, 0.09)
+local offsetlabel     = makeLabel(itemsTab, "Y Offset",        0.22, 0.09, 0.1,  0.09)
+local offsetspheres   = makeTextBox(itemsTab, "2",             0.34, 0.09, 0.08, 0.09)
+
+-- Section label: Bring
+local bringSection = makeLabel(itemsTab, "◈ Bring", 0.02, 0.21, 0.2, 0.06)
+bringSection.TextXAlignment = Enum.TextXAlignment.Left
+bringSection.BackgroundTransparency = 1
+bringSection.TextColor3 = C.accent
+bringSection.Font = Enum.Font.GothamBold
+
+local bringall              = makeBtn(itemsTab, "Bring All",          0.02,  0.28, 0.18, 0.09)
+local bringloop             = makeBtn(itemsTab, "⟳ Bring Loop",       0.22,  0.28, 0.18, 0.09)
+local bringwithloop         = makeBtn(itemsTab, "Follow Loop",        0.42,  0.28, 0.18, 0.09)
+local bringalltosphere      = makeBtn(itemsTab, "CFrame → Sphere",    0.02,  0.40, 0.18, 0.09)
+local bringallof1           = makeBtn(itemsTab, "Bring Selected",     0.22,  0.40, 0.18, 0.09)
+local bringallselectedtosphere = makeBtn(itemsTab, "Selected → Sphere", 0.42, 0.40, 0.18, 0.09)
+
+-- Section label: Misc
+local miscSection = makeLabel(itemsTab, "◈ Misc", 0.02, 0.52, 0.2, 0.06)
+miscSection.TextXAlignment = Enum.TextXAlignment.Left
+miscSection.BackgroundTransparency = 1
+miscSection.TextColor3 = C.accent
+miscSection.Font = Enum.Font.GothamBold
+
+local togglemobileb = makeBtn(itemsTab, "Lock Spheres",  0.02,  0.59, 0.18, 0.09)
+local unanchor      = makeBtn(itemsTab, "Unanchor All",  0.22,  0.59, 0.18, 0.09, C.panel)
+
+-- Selected item label
+local selectedItemLabel = Instance.new("TextLabel")
+selectedItemLabel.Size = UDim2.fromScale(0.55, 0.07)
+selectedItemLabel.Position = UDim2.fromScale(0.02, 0.88)
+selectedItemLabel.BackgroundColor3 = C.panel
+selectedItemLabel.TextColor3 = C.textDim
+selectedItemLabel.TextScaled = true
+selectedItemLabel.Font = Enum.Font.Gotham
+selectedItemLabel.Text = "Selected: None"
+selectedItemLabel.Parent = itemsTab
+Instance.new("UICorner", selectedItemLabel).CornerRadius = UDim.new(0, 6)
+addStroke(selectedItemLabel, C.border, 1)
+
+-- Scroll frame (item list)
+local scrollFrame = Instance.new("ScrollingFrame")
+scrollFrame.Size = UDim2.fromScale(0.27, 0.96)
+scrollFrame.Position = UDim2.fromScale(0.72, 0.02)
+scrollFrame.BackgroundColor3 = C.panel
+scrollFrame.BorderSizePixel = 0
+scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+scrollFrame.ScrollBarThickness = 4
+scrollFrame.ScrollBarImageColor3 = C.scrollBar
+scrollFrame.Parent = itemsTab
+Instance.new("UICorner", scrollFrame).CornerRadius = UDim.new(0, 8)
+addStroke(scrollFrame, C.border, 1)
+
+local scrollLabel = Instance.new("TextLabel")
+scrollLabel.Size = UDim2.new(1, 0, 0, 22)
+scrollLabel.BackgroundColor3 = C.accent
+scrollLabel.Text = "Nearby Items"
+scrollLabel.TextColor3 = C.text
+scrollLabel.TextScaled = true
+scrollLabel.Font = Enum.Font.GothamBold
+scrollLabel.Parent = scrollFrame
+Instance.new("UICorner", scrollLabel).CornerRadius = UDim.new(0, 6)
+
+local scrollLayout = Instance.new("UIListLayout")
+scrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
+scrollLayout.Padding = UDim.new(0, 4)
+scrollLayout.Parent = scrollFrame
+scrollLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	scrollFrame.CanvasSize = UDim2.new(0, 0, 0, scrollLayout.AbsoluteContentSize.Y + 10)
+end)
+
+-- Lock spheres floating button
+local lockspheres = Instance.new("TextButton")
+lockspheres.Size = UDim2.fromScale(0.07, 0.06)
+lockspheres.Position = UDim2.fromScale(0.88, 0.5)
+lockspheres.BackgroundColor3 = C.accentDim
+lockspheres.Text = "🔒 Spheres"
+lockspheres.TextColor3 = C.text
+lockspheres.TextScaled = true
+lockspheres.Font = Enum.Font.Gotham
+lockspheres.Parent = screenGui
+lockspheres.ZIndex = 900
+lockspheres.Visible = false
+Instance.new("UICorner", lockspheres).CornerRadius = UDim.new(0, 8)
+addStroke(lockspheres, C.accent, 1)
+applyHover(lockspheres, C.accentDim, C.accent)
+
+togglemobileb.Activated:Connect(function()
+	lockspheres.Visible = not lockspheres.Visible
+end)
+
+-- ============================================================
+-- ARE YOU SURE dialog
+-- ============================================================
+local areyousure = Instance.new("Frame")
+areyousure.Name = "areyousure"
+areyousure.Size = UDim2.fromScale(0.38, 0.28)
+areyousure.Position = UDim2.fromScale(0.31, 0.36)
+areyousure.BackgroundColor3 = C.bg
+areyousure.BorderSizePixel = 0
+areyousure.Visible = false
+areyousure.Parent = screenGui
+areyousure.ZIndex = 1000
+Instance.new("UICorner", areyousure).CornerRadius = UDim.new(0, 12)
+addStroke(areyousure, C.danger, 1.5)
+
+local warningTitle = Instance.new("TextLabel")
+warningTitle.Size = UDim2.fromScale(1, 0.3)
+warningTitle.Position = UDim2.fromScale(0, 0)
+warningTitle.BackgroundColor3 = C.danger
+warningTitle.Text = "⚠  Close Script?"
+warningTitle.TextColor3 = C.text
+warningTitle.TextScaled = true
+warningTitle.Font = Enum.Font.GothamBold
+warningTitle.ZIndex = 1001
+warningTitle.Parent = areyousure
+Instance.new("UICorner", warningTitle).CornerRadius = UDim.new(0, 10)
+
+local warning = Instance.new("TextLabel")
+warning.Size = UDim2.fromScale(0.9, 0.28)
+warning.Position = UDim2.fromScale(0.05, 0.33)
+warning.BackgroundTransparency = 1
+warning.Text = "Closing will break the script!"
+warning.TextColor3 = Color3.fromRGB(220, 100, 100)
+warning.TextScaled = true
+warning.TextWrapped = true
+warning.Font = Enum.Font.Gotham
+warning.ZIndex = 1001
+warning.Parent = areyousure
+
+local yes = Instance.new("TextButton")
+yes.Size = UDim2.fromScale(0.38, 0.25)
+yes.Position = UDim2.fromScale(0.55, 0.68)
+yes.BackgroundColor3 = C.danger
+yes.Text = "Yes, close"
+yes.TextColor3 = C.text
+yes.TextScaled = true
+yes.Font = Enum.Font.GothamBold
+yes.ZIndex = 1001
+yes.Parent = areyousure
+Instance.new("UICorner", yes).CornerRadius = UDim.new(0, 8)
+applyHover(yes, C.danger, C.dangerHover)
+
+local no = Instance.new("TextButton")
+no.Size = UDim2.fromScale(0.38, 0.25)
+no.Position = UDim2.fromScale(0.07, 0.68)
+no.BackgroundColor3 = C.success
+no.Text = "Cancel"
+no.TextColor3 = C.text
+no.TextScaled = true
+no.Font = Enum.Font.GothamBold
+no.ZIndex = 1001
+no.Parent = areyousure
+Instance.new("UICorner", no).CornerRadius = UDim.new(0, 8)
+applyHover(no, C.success, Color3.fromRGB(70, 210, 120))
+
+closeButton.Activated:Connect(function()
+	areyousure.Visible = true
+	outerFrame.Visible = false
+end)
+
+yes.Activated:Connect(function()
+	screenGui:Destroy()
+end)
+
+no.Activated:Connect(function()
+	areyousure.Visible = false
+	outerFrame.Visible = true
+end)
+
+-- ============================================================
+-- DRAGGABLE TITLE BAR
+-- ============================================================
+do
+	local dragging = false
+	local dragInput, dragStart, startPos
+
+	titleBar.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = true
+			dragStart = input.Position
+			startPos = outerFrame.Position
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+				end
+			end)
+		end
+	end)
+
+	titleBar.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseMovement then
+			dragInput = input
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if input == dragInput and dragging then
+			local delta = input.Position - dragStart
+			outerFrame.Position = UDim2.new(
+				startPos.X.Scale, startPos.X.Offset + delta.X,
+				startPos.Y.Scale, startPos.Y.Offset + delta.Y
+			)
+		end
+	end)
+end
+
+-- ============================================================
+-- VALID NAMES + GETVALIDOBJECTS
+-- ============================================================
+local validNames = {
+	"burger","m4a1","pistol","bowlball", "cone","dynamite","landmine","Water Gun","Sticky Bomb","Fake Pistol","AK47","DogTag","radioactivebarrel","silenced pistol", "silver bar" ,"gold bar","swarm grenade", "vaz", "vaza"
+}
+
+local function GetValidObjects()
+	local validModels = {}
+
+	local function NameMatches(name)
+		name = name:lower()
+		for _, valid in ipairs(validNames) do
+			if name == valid then return true end
+		end
+		return false
+	end
+
+	local function scan(obj)
+		if obj:IsA("Model") and obj ~= plr.Character and NameMatches(obj.Name) then
+			local hasValidPart = false
+			for _, descendant in ipairs(obj:GetDescendants()) do
+				if descendant:IsA("BasePart") then hasValidPart = true break end
+			end
+			if hasValidPart then table.insert(validModels, obj) end
+		end
+		for _, child in ipairs(obj:GetChildren()) do
+			if child:IsA("Model") then scan(child) end
+		end
+	end
+
+	for _, child in ipairs(workspace:GetChildren()) do
+		scan(child)
+	end
+	return validModels
+end
+
+local validNameSet = {}
+for _, name in ipairs(validNames) do
+	validNameSet[string.lower(name)] = true
+end
+
+-- ============================================================
+-- SCROLL LIST updater
+-- ============================================================
+task.spawn(function()
+	while screenGui.Parent do
+		for _, child in ipairs(scrollFrame:GetChildren()) do
+			if child:IsA("TextButton") then child:Destroy() end
+		end
+		local models = GetValidObjects()
+		local counts = {}
+		for _, m in ipairs(models) do
+			local lname = m.Name:lower()
+			counts[lname] = (counts[lname] or 0) + 1
+		end
+		local sortedNames = {}
+		for name in pairs(counts) do table.insert(sortedNames, name) end
+		table.sort(sortedNames)
+
+		for _, name in ipairs(sortedNames) do
+			local displayText = string.format("%s  ×%d", name, counts[name])
+			local btn = Instance.new("TextButton")
+			btn.Size = UDim2.new(1, 0, 0, 28)
+			btn.BackgroundColor3 = C.card
+			btn.TextColor3 = C.text
+			btn.TextScaled = true
+			btn.Font = Enum.Font.Gotham
+			btn.TextWrapped = true
+			btn.Text = displayText
+			btn.Parent = scrollFrame
+			Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 5)
+
+			btn.MouseEnter:Connect(function()
+				TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = C.cardHover}):Play()
+			end)
+			btn.MouseLeave:Connect(function()
+				TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = C.card}):Play()
+			end)
+			btn.MouseButton1Click:Connect(function()
+				selectedItemLabel.Text = "Selected: " .. name .. " ×" .. counts[name]
+				TweenService:Create(selectedItemLabel, TweenInfo.new(0.1), {TextColor3 = C.accent}):Play()
+				task.delay(0.5, function()
+					TweenService:Create(selectedItemLabel, TweenInfo.new(0.3), {TextColor3 = C.textDim}):Play()
+				end)
+			end)
+		end
+		task.wait(1)
+	end
+end)
+
+-- ============================================================
+-- SPHERES
+-- ============================================================
+local spheresActive = false
+local mainSphere, ySphere
+local yOffset = 2
+local sphereLocked = false
+
+offsetspheres.FocusLost:Connect(function()
+	local newVal = tonumber(offsetspheres.Text)
+	if newVal then
+		yOffset = newVal
+	else
+		offsetspheres.Text = tostring(yOffset)
+	end
+end)
+
+toggleButton.Activated:Connect(function()
+	if spheresActive then
+		spheresActive = false
+		sphereLocked = false
+		if mainSphere then mainSphere:Destroy(); mainSphere = nil end
+		if ySphere then ySphere:Destroy(); ySphere = nil end
+		toggleButton.Text = "TP Spheres"
+		toggleButton.BackgroundColor3 = C.accentDim
+	else
+		mainSphere = Instance.new("Part")
+		mainSphere.Shape = Enum.PartType.Ball
+		mainSphere.Size = Vector3.new(0.5, 0.5, 0.5)
+		mainSphere.Color = Color3.fromRGB(0, 170, 255)
+		mainSphere.Material = Enum.Material.Neon
+		mainSphere.Anchored = true
+		mainSphere.CanCollide = false
+		mainSphere.Parent = workspace
+
+		ySphere = Instance.new("Part")
+		ySphere.Shape = Enum.PartType.Ball
+		ySphere.Size = Vector3.new(0.5, 0.5, 0.5)
+		ySphere.Color = Color3.fromRGB(255, 50, 50)
+		ySphere.Material = Enum.Material.Neon
+		ySphere.Anchored = true
+		ySphere.CanCollide = false
+		ySphere.Parent = workspace
+
+		spheresActive = true
+		toggleButton.Text = "✕ Spheres ON"
+		toggleButton.BackgroundColor3 = C.success
+	end
+end)
+
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed then return end
+	if input.KeyCode == Enum.KeyCode.P and spheresActive then
+		sphereLocked = not sphereLocked
+	end
+end)
+
+lockspheres.Activated:Connect(function()
+	sphereLocked = not sphereLocked
+end)
+
+RunService.RenderStepped:Connect(function()
+	if not spheresActive or not mainSphere or not ySphere then return end
+	local mousePos = UserInputService:GetMouseLocation()
+	local ray = Camera:ViewportPointToRay(mousePos.X, mousePos.Y)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Blacklist
+	params.FilterDescendantsInstances = {mainSphere, ySphere, plr.Character}
+	params.IgnoreWater = true
+	local rayResult = workspace:Raycast(ray.Origin, ray.Direction * 500, params)
+	local hitPos = rayResult and rayResult.Position or (ray.Origin + ray.Direction * 5)
+	if not sphereLocked then mainSphere.Position = hitPos end
+	ySphere.Position = mainSphere.Position + Vector3.new(0, yOffset, 0)
+end)
+
+-- ============================================================
+-- BRING ALL
+-- ============================================================
+bringall.Activated:Connect(function()
+	local models = GetValidObjects()
+	if #models == 0 then warn("No valid objects found.") return end
+	local count = 0
+	for _, obj in ipairs(models) do
+		local pp = obj.PrimaryPart
+		if not pp then
+			for _, part in ipairs(obj:GetDescendants()) do
+				if part:IsA("BasePart") then obj.PrimaryPart = part pp = part break end
+			end
+		end
+		if pp then
+			local pos = HumanoidRootPart.Position + Vector3.new(0, 3, 0)
+			obj:SetPrimaryPartCFrame(CFrame.new(pos + Vector3.new(math.random(-5, 5), 0, math.random(-5, 5))))
+			count += 1
+		end
+	end
+	print("[BringAll] Brought " .. count .. " items.")
+end)
+
+-- ============================================================
+-- BRING LOOP (every 1s → player)
+-- ============================================================
+local bringLoopActive = false
+
+bringloop.Activated:Connect(function()
+	bringLoopActive = not bringLoopActive
+
+	if bringLoopActive then
+		bringloop.Text = "⏹ Stop Loop"
+		TweenService:Create(bringloop, TweenInfo.new(0.15), {BackgroundColor3 = C.danger}):Play()
+
+		task.spawn(function()
+			while bringLoopActive do
+				local models = GetValidObjects()
+				local count = 0
+				for _, obj in ipairs(models) do
+					local pp = obj.PrimaryPart
+					if not pp then
+						for _, part in ipairs(obj:GetDescendants()) do
+							if part:IsA("BasePart") then obj.PrimaryPart = part pp = part break end
+						end
+					end
+					if pp then
+						pp.Anchored = false
+						local pos = HumanoidRootPart.Position + Vector3.new(0, 3, 0)
+						obj:SetPrimaryPartCFrame(CFrame.new(pos + Vector3.new(math.random(-5, 5), 0, math.random(-5, 5))))
+						count += 1
+					end
+				end
+				print("[BringLoop] Brought " .. count .. " items.")
+				task.wait(1)
+			end
+		end)
+	else
+		bringloop.Text = "⟳ Bring Loop"
+		TweenService:Create(bringloop, TweenInfo.new(0.15), {BackgroundColor3 = C.accentDim}):Play()
+	end
+end)
+
+-- ============================================================
+-- BRING ALL OF SELECTED
+-- ============================================================
+bringallof1.Activated:Connect(function()
+	local selectedText = selectedItemLabel.Text
+	local selectedName = selectedText:match("Selected:%s*(.-)%s*[×x%(]")
+	if not selectedName or selectedName:find("None") then
+		warn("[BringAllOf] No item selected.")
+		return
+	end
+	selectedName = selectedName:lower():match("^%s*(.-)%s*$")
+	local models = GetValidObjects()
+	local count = 0
+	for _, obj in ipairs(models) do
+		if obj.Name:lower() == selectedName then
+			local pp = obj.PrimaryPart
+			if not pp then
+				for _, part in ipairs(obj:GetDescendants()) do
+					if part:IsA("BasePart") then obj.PrimaryPart = part pp = part break end
+				end
+			end
+			if pp then
+				local pos = HumanoidRootPart.Position + Vector3.new(0, 3, 0)
+				obj:SetPrimaryPartCFrame(CFrame.new(pos + Vector3.new(math.random(-5, 5), 0, math.random(-5, 5))))
+				count += 1
+			end
+		end
+	end
+	print("[BringAllOf] Brought " .. count .. " '" .. selectedName .. "'.")
+end)
+
+-- ============================================================
+-- BRING ALL TO SPHERE (loop)
+-- ============================================================
+local bringingAll = false
+
+bringalltosphere.Activated:Connect(function()
+	bringingAll = not bringingAll
+	if bringingAll then
+		bringalltosphere.Text = "⏹ Stop → Sphere"
+		TweenService:Create(bringalltosphere, TweenInfo.new(0.15), {BackgroundColor3 = C.danger}):Play()
+	else
+		bringalltosphere.Text = "CFrame → Sphere"
+		TweenService:Create(bringalltosphere, TweenInfo.new(0.15), {BackgroundColor3 = C.accentDim}):Play()
+	end
+
+	task.spawn(function()
+		while bringingAll do
+			local models = GetValidObjects()
+			if #models == 0 then task.wait(1) continue end
+			local count = 0
+			for _, obj in ipairs(models) do
+				local pp = obj.PrimaryPart
+				if not pp then
+					for _, part in ipairs(obj:GetDescendants()) do
+						if part:IsA("BasePart") then obj.PrimaryPart = part pp = part break end
+					end
+				end
+				if pp and ySphere then
+					pp.Anchored = false
+					obj:SetPrimaryPartCFrame(CFrame.new(ySphere.Position))
+					count += 1
+				end
+			end
+			print("[BringAll→Sphere] Brought " .. count .. " items.")
+			task.wait(1)
+		end
+	end)
+end)
+
+-- ============================================================
+-- BRING SELECTED TO SPHERE
+-- ============================================================
+bringallselectedtosphere.Activated:Connect(function()
+	local selectedText = selectedItemLabel.Text
+	local selectedName = selectedText:match("Selected:%s*(.-)%s*[×x%(]")
+	if not selectedName or selectedName:find("None") then
+		warn("[BringSelected→Sphere] No item selected.")
+		return
+	end
+	selectedName = selectedName:lower():match("^%s*(.-)%s*$")
+	if not ySphere then warn("[BringSelected→Sphere] Spheres not active.") return end
+	local models = GetValidObjects()
+	local count = 0
+	for _, obj in ipairs(models) do
+		if obj.Name:lower() == selectedName then
+			local pp = obj.PrimaryPart
+			if not pp then
+				for _, part in ipairs(obj:GetDescendants()) do
+					if part:IsA("BasePart") then obj.PrimaryPart = part pp = part break end
+				end
+			end
+			if pp then
+				pp.Anchored = false
+				obj:SetPrimaryPartCFrame(CFrame.new(ySphere.Position))
+				count += 1
+			end
+		end
+	end
+	print("[BringSelected→Sphere] Brought " .. count .. " items.")
+end)
+
+-- ============================================================
+-- FOLLOW LOOP (bringwithloop)
+-- ============================================================
+local DISTANCE_THRESHOLD = 350
+local FOLLOW_OFFSET = Vector3.new(0, 15, 250)
+local FOLLOW_SPEED = 0.08
+local following = false
+local processedModels = {}
+local followModels = {}
+
+local function setPrimaryPart(model)
+	if not model:IsA("Model") then return end
+	if model.PrimaryPart then return end
+	for _, obj in ipairs(model:GetDescendants()) do
+		if obj:IsA("BasePart") then model.PrimaryPart = obj break end
+	end
+end
+
+local function trackModel(model)
+	if not following then return end
+	if not model:IsA("Model") then return end
+	local lname = string.lower(model.Name)
+	if not validNameSet[lname] then return end
+	if processedModels[model] or followModels[model] then return end
+	setPrimaryPart(model)
+	if model.PrimaryPart then processedModels[model] = true end
+end
+
+local function checkAndTeleport()
+	for model in pairs(processedModels) do
+		if model and model.PrimaryPart then
+			local dist = (model.PrimaryPart.Position - HumanoidRootPart.Position).Magnitude
+			if dist >= DISTANCE_THRESHOLD then
+				local targetCFrame = HumanoidRootPart.CFrame + FOLLOW_OFFSET
+				for _, part in ipairs(model:GetDescendants()) do
+					if part:IsA("BasePart") then part.Anchored = true end
+				end
+				model:SetPrimaryPartCFrame(targetCFrame)
+				followModels[model] = true
+				processedModels[model] = nil
+			end
+		end
+	end
+end
+
+local function moveFollowModels()
+	for model in pairs(followModels) do
+		if model and model.PrimaryPart then
+			local cur = model.PrimaryPart.CFrame
+			local tgt = HumanoidRootPart.CFrame + FOLLOW_OFFSET
+			model:SetPrimaryPartCFrame(cur:Lerp(tgt, FOLLOW_SPEED))
+		else
+			followModels[model] = nil
+		end
+	end
+end
+
+local function dropAllModels()
+	following = false
+	local idx = 0
+	for model in pairs(followModels) do
+		if model and model.PrimaryPart then
+			local angle = math.rad(idx * 30)
+			local offset = Vector3.new(math.cos(angle)*250, 15, math.sin(angle)*250)
+			model:SetPrimaryPartCFrame(HumanoidRootPart.CFrame + offset)
+			idx += 1
+		end
+	end
+	processedModels = {}
+	followModels = {}
+end
+
+local function toggleFollow()
+	if following then
+		dropAllModels()
+	else
+		following = true
+		for _, model in ipairs(workspace:GetDescendants()) do trackModel(model) end
+	end
+end
+
+Workspace.DescendantAdded:Connect(trackModel)
+
+RunService.Heartbeat:Connect(function()
+	if following then checkAndTeleport(); moveFollowModels() end
+end)
+
+bringwithloop.Activated:Connect(function()
+	toggleFollow()
+	if following then
+		bringwithloop.Text = "⟳ Following..."
+		TweenService:Create(bringwithloop, TweenInfo.new(0.15), {BackgroundColor3 = C.success}):Play()
+	else
+		bringwithloop.Text = "Follow Loop"
+		TweenService:Create(bringwithloop, TweenInfo.new(0.15), {BackgroundColor3 = C.accentDim}):Play()
+	end
+end)
+
+-- ============================================================
+-- UNANCHOR
+-- ============================================================
+local function unanchorValidModels()
+	for _, model in ipairs(workspace:GetDescendants()) do
+		if model:IsA("Model") and validNameSet[string.lower(model.Name)] then
+			for _, part in ipairs(model:GetDescendants()) do
+				if part:IsA("BasePart") then part.Anchored = false end
+			end
+		end
+	end
+end
+
+unanchor.Activated:Connect(unanchorValidModels)
+
+-- ============================================================
+-- GET MODEL NAME TAB (raycast tool)
+-- ============================================================
+local mouse = plr:GetMouse()
+
+local RaycastGUI = Instance.new("TextBox")
+RaycastGUI.Size = UDim2.fromScale(0.9, 0.85)
+RaycastGUI.Position = UDim2.fromScale(0.05, 0.1)
+RaycastGUI.Text = "-- Click on objects in the world\n-- Their model names will appear here"
+RaycastGUI.ClearTextOnFocus = false
+RaycastGUI.TextScaled = false
+RaycastGUI.TextSize = 16
+RaycastGUI.TextWrapped = true
+RaycastGUI.TextXAlignment = Enum.TextXAlignment.Left
+RaycastGUI.TextYAlignment = Enum.TextYAlignment.Top
+RaycastGUI.TextColor3 = C.text
+RaycastGUI.BackgroundColor3 = C.panel
+RaycastGUI.Font = Enum.Font.Code
+RaycastGUI.Parent = placeholder1
+Instance.new("UICorner", RaycastGUI).CornerRadius = UDim.new(0, 8)
+addStroke(RaycastGUI, C.accent, 1)
+
+local clearBtn = makeBtn(placeholder1, "Clear", 0.05, 0.02, 0.12, 0.07, C.danger)
+
+local hitModels = {}
+
+local function getModel(part)
+	if not part then return nil end
+	local model = part:FindFirstAncestorOfClass("Model")
+	return model and model.Name or nil
+end
+
+local function castRay()
+	local character = plr.Character
+	if not character then return end
+	local head = character:FindFirstChild("Head")
+	if not head then return end
+	local origin = head.Position
+	local direction = (mouse.Hit.Position - origin).Unit * 1000
+	local params = RaycastParams.new()
+	params.FilterDescendantsInstances = {character}
+	params.FilterType = Enum.RaycastFilterType.Blacklist
+	local result = workspace:Raycast(origin, direction, params)
+	if result and result.Instance then
+		local modelName = getModel(result.Instance)
+		if modelName and not table.find(hitModels, modelName) then
+			table.insert(hitModels, modelName)
+			RaycastGUI.Text = '"' .. table.concat(hitModels, '",\n"') .. '"'
+		end
+	end
+end
+
+clearBtn.Activated:Connect(function()
+	hitModels = {}
+	RaycastGUI.Text = ""
+end)
+
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed then return end
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		castRay()
+	end
+end)
+
+-- ============================================================
+-- RSHIFT TOGGLE (open/close frame)
+-- ============================================================
+local uiVisible = true
+
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed then return end
+	if input.KeyCode == Enum.KeyCode.RightShift then
+		uiVisible = not uiVisible
+		outerFrame.Visible = uiVisible
+		-- Also close the confirm dialog if it was open
+		if not uiVisible then areyousure.Visible = false end
+	end
+end)
