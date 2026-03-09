@@ -596,115 +596,78 @@ for _, name in ipairs(validNames) do
 end
 
 -- ============================================================
--- GET ALL OBJECTS (everything except terrain/floor/walls/players)
+-- GET ALL PICKUPABLE OBJECTS (Handle-based detection)
+-- Логика: любой предмет в workspace у которого есть дочерний
+-- Part с именем "Handle" — это предмет который можно взять в руки.
+-- Постройки, дороги, кактусы-декор Handle не имеют.
 -- ============================================================
-local IGNORE_SIZE_THRESHOLD = 200  -- parts bigger than this on any axis = floor/wall/map
-local IGNORE_NAMES = {
-	["baseplate"] = true, ["base"] = true, ["terrain"] = true,
-	["floor"] = true, ["wall"] = true, ["ceiling"] = true,
-	["ground"] = true, ["map"] = true, ["lobby"] = true,
-	["spawnlocation"] = true, ["spawn"] = true,
-}
 
--- Collect all player character root parts for filtering
-local function getPlayerParts()
-	local parts = {}
+local function getPlayerModels()
+	local set = {}
 	for _, p in ipairs(Players:GetPlayers()) do
-		if p.Character then
-			for _, obj in ipairs(p.Character:GetDescendants()) do
-				if obj:IsA("BasePart") then parts[obj] = true end
-			end
-		end
+		if p.Character then set[p.Character] = true end
 	end
-	return parts
+	return set
 end
 
 local function GetAllObjects()
-	local playerParts = getPlayerParts()
-	local collected = {}  -- { part or model, rootPart }
+	local playerModels = getPlayerModels()
+	local collected = {}
 	local seen = {}
 
-	local function isTooBig(part)
-		local s = part.Size
-		return s.X > IGNORE_SIZE_THRESHOLD or s.Y > IGNORE_SIZE_THRESHOLD or s.Z > IGNORE_SIZE_THRESHOLD
+	-- Рекурсивно сканируем workspace в поисках моделей с Handle
+	local function scan(obj)
+		-- Пропускаем персонажей игроков и их потомков
+		if playerModels[obj] then return end
+
+		if obj:IsA("Model") then
+			-- Пропускаем персонажей
+			if playerModels[obj] then return end
+
+			-- Ищем Handle среди прямых детей модели
+			local handle = obj:FindFirstChild("Handle")
+			if handle and handle:IsA("BasePart") then
+				-- Это подбираемый предмет!
+				if not seen[obj] then
+					seen[obj] = true
+					-- Убедимся что PrimaryPart = Handle
+					obj.PrimaryPart = handle
+					table.insert(collected, obj)
+				end
+				return -- не лезем внутрь дальше
+			end
+
+			-- Если Handle не у прямого ребёнка — ищем глубже
+			-- (некоторые игры вкладывают Tool -> Model -> Handle)
+			local deepHandle = obj:FindFirstChild("Handle", true)
+			if deepHandle and deepHandle:IsA("BasePart") then
+				if not seen[obj] then
+					seen[obj] = true
+					obj.PrimaryPart = deepHandle
+					table.insert(collected, obj)
+				end
+				return
+			end
+
+			-- Нет Handle — сканируем детей в поиске вложенных моделей
+			for _, child in ipairs(obj:GetChildren()) do
+				scan(child)
+			end
+
+		elseif obj:IsA("Tool") then
+			-- Tool тоже может лежать в workspace напрямую
+			local handle = obj:FindFirstChild("Handle")
+			if handle and handle:IsA("BasePart") and not seen[obj] then
+				seen[obj] = true
+				table.insert(collected, obj)
+			end
+		end
 	end
 
-	local function isIgnoredName(name)
-		return IGNORE_NAMES[name:lower()] ~= nil
-	end
-
-	-- Walk top-level children of workspace
 	for _, child in ipairs(workspace:GetChildren()) do
-		-- Skip terrain
 		if child:IsA("Terrain") then continue end
-		-- Skip player characters
-		if child:IsA("Model") then
-			local isPlayer = false
-			for _, p in ipairs(Players:GetPlayers()) do
-				if p.Character == child then isPlayer = true break end
-			end
-			if isPlayer then continue end
-			-- Skip map/lobby models by name
-			if isIgnoredName(child.Name) then continue end
-		end
-		-- Skip camera
 		if child == Camera then continue end
-
-		-- Collect loose BaseParts at top level
-		if child:IsA("BasePart") then
-			if playerParts[child] then continue end
-			if isTooBig(child) then continue end
-			if isIgnoredName(child.Name) then continue end
-			if not seen[child] then
-				seen[child] = true
-				table.insert(collected, child)
-			end
-		end
-
-		-- Collect Models: find primary part or first BasePart
-		if child:IsA("Model") then
-			-- Try to find a representative part
-			local rep = child.PrimaryPart
-			if not rep then
-				for _, d in ipairs(child:GetDescendants()) do
-					if d:IsA("BasePart") and not playerParts[d] and not isTooBig(d) then
-						rep = d
-						child.PrimaryPart = d
-						break
-					end
-				end
-			end
-			if rep and not seen[child] then
-				seen[child] = true
-				table.insert(collected, child)
-			end
-		end
-
-		-- Also grab nested Models inside non-player models (tools dropped, etc.)
-		for _, desc in ipairs(child:GetDescendants()) do
-			if desc:IsA("Model") then
-				local isPlayer = false
-				for _, p in ipairs(Players:GetPlayers()) do
-					if p.Character == desc then isPlayer = true break end
-				end
-				if isPlayer then continue end
-				if isIgnoredName(desc.Name) then continue end
-				local rep = desc.PrimaryPart
-				if not rep then
-					for _, d in ipairs(desc:GetDescendants()) do
-						if d:IsA("BasePart") and not playerParts[d] and not isTooBig(d) then
-							rep = d
-							desc.PrimaryPart = d
-							break
-						end
-					end
-				end
-				if rep and not seen[desc] then
-					seen[desc] = true
-					table.insert(collected, desc)
-				end
-			end
-		end
+		scan(child)
 	end
 
 	return collected
