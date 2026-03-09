@@ -757,15 +757,7 @@ local function GetAllObjects()
 end
 
 local function bringObjectToPlayer(obj)
-	-- Позиция сзади игрока: берём направление взгляда и инвертируем
-	-- LookVector смотрит вперёд, -LookVector = назад
-	local behindOffset = -HumanoidRootPart.CFrame.LookVector * 6
-	-- Небольшой разброс по бокам чтобы вещи не складывались в одну точку
-	local sideOffset = HumanoidRootPart.CFrame.RightVector * math.random(-3, 3)
-	local targetCFrame = CFrame.new(
-		HumanoidRootPart.Position + behindOffset + sideOffset + Vector3.new(0, 0.5, 0)
-	)
-
+	local targetCFrame = CFrame.new(HumanoidRootPart.Position + Vector3.new(0, 4, 0))
 	if obj:IsA("Model") then
 		local pp = obj.PrimaryPart
 		if pp then
@@ -917,8 +909,8 @@ bringall.Activated:Connect(function()
 			end
 		end
 		if pp then
-			local behind = -HumanoidRootPart.CFrame.LookVector * 6 + HumanoidRootPart.CFrame.RightVector * math.random(-3, 3)
-			obj:SetPrimaryPartCFrame(CFrame.new(HumanoidRootPart.Position + behind + Vector3.new(0, 0.5, 0)))
+			local behind = Vector3.new(0, 4, 0)
+			obj:SetPrimaryPartCFrame(CFrame.new(HumanoidRootPart.Position + behind))
 			count += 1
 		end
 	end
@@ -950,8 +942,8 @@ bringloop.Activated:Connect(function()
 					end
 					if pp then
 						pp.Anchored = false
-						local behind = -HumanoidRootPart.CFrame.LookVector * 6 + HumanoidRootPart.CFrame.RightVector * math.random(-3, 3)
-						obj:SetPrimaryPartCFrame(CFrame.new(HumanoidRootPart.Position + behind + Vector3.new(0, 0.5, 0)))
+						local behind = Vector3.new(0, 4, 0)
+						obj:SetPrimaryPartCFrame(CFrame.new(HumanoidRootPart.Position + behind))
 						count += 1
 					end
 				end
@@ -1027,8 +1019,8 @@ bringallof1.Activated:Connect(function()
 				end
 			end
 			if pp then
-				local behind = -HumanoidRootPart.CFrame.LookVector * 6 + HumanoidRootPart.CFrame.RightVector * math.random(-3, 3)
-				obj:SetPrimaryPartCFrame(CFrame.new(HumanoidRootPart.Position + behind + Vector3.new(0, 0.5, 0)))
+				local behind = Vector3.new(0, 4, 0)
+				obj:SetPrimaryPartCFrame(CFrame.new(HumanoidRootPart.Position + behind))
 				count += 1
 			end
 		end
