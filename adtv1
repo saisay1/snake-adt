@@ -444,6 +444,8 @@ local function killNPCsInRadius()
 					if distance <= radius then
 						-- Убиваем NPC
 						npcHumanoid.Health = 0
+						task.wait(0.01)
+						npcHumanoid.Health = -1
 						killedCount = killedCount + 1
 					end
 				end
