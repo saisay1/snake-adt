@@ -394,7 +394,95 @@ plr.CharacterAdded:Connect(function(char)
 	hum.WalkSpeed = num
 end)
 
+-- ============================================================
+-- MAIN TAB — NPC Killer
+-- ============================================================
 
+local npcSection = makeLabel(mainTab, "◈ NPC Killer", 0.04, 0.45, 0.35, 0.07)
+npcSection.TextXAlignment = Enum.TextXAlignment.Left
+npcSection.BackgroundTransparency = 1
+npcSection.TextColor3 = Color3.fromRGB(220, 50, 60)
+npcSection.Font = Enum.Font.GothamBold
+
+local killNPCsButton = makeBtn(mainTab, "☠ Kill NPCs", 0.04, 0.54, 0.22, 0.09, Color3.fromRGB(140, 30, 40))
+local npcStatus = makeLabel(mainTab, "Radius: 1000 studs", 0.04, 0.65, 0.53, 0.07)
+npcStatus.BackgroundTransparency = 1
+npcStatus.TextColor3 = C.textDim
+npcStatus.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Переменная для включения/выключения убийства NPC
+local killNPCsActive = false
+
+local function killNPCsInRadius()
+	local char = plr.Character
+	if not char then return 0 end
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return 0 end
+	
+	local killedCount = 0
+	local radius = 1000
+	
+	-- Ищем всех NPC в workspace
+	for _, obj in ipairs(workspace:GetDescendants()) do
+		if obj:IsA("Model") and obj ~= char then
+			local npcHumanoid = obj:FindFirstChildWhichIsA("Humanoid")
+			local npcHRP = obj:FindFirstChild("HumanoidRootPart")
+			
+			if npcHumanoid and npcHRP then
+				-- Проверяем что это не игрок
+				local isPlayer = false
+				for _, player in ipairs(Players:GetPlayers()) do
+					if player.Character == obj then
+						isPlayer = true
+						break
+					end
+				end
+				
+				if not isPlayer then
+					-- Проверяем расстояние
+					local distance = (npcHRP.Position - hrp.Position).Magnitude
+					if distance <= radius then
+						-- Убиваем NPC
+						npcHumanoid.Health = 0
+						killedCount = killedCount + 1
+					end
+				end
+			end
+		end
+	end
+	
+	return killedCount
+end
+
+killNPCsButton.Activated:Connect(function()
+	killNPCsActive = not killNPCsActive
+	
+	if killNPCsActive then
+		killNPCsButton.Text = "⏹ Stop Killing"
+		killNPCsButton.BackgroundColor3 = C.success
+		npcStatus.Text = "✔ Активно: убиваем NPCs..."
+		npcStatus.TextColor3 = C.success
+		
+		-- Запускаем цикл убийства
+		task.spawn(function()
+			while killNPCsActive do
+				local killed = killNPCsInRadius()
+				if killed > 0 then
+					npcStatus.Text = "✔ Убито NPCs: " .. killed
+				end
+				task.wait(0.5)  -- Проверяем каждые 0.5 секунды
+			end
+		end)
+	else
+		killNPCsButton.Text = "☠ Kill NPCs"
+		killNPCsButton.BackgroundColor3 = Color3.fromRGB(140, 30, 40)
+		npcStatus.Text = "Остановлено"
+		npcStatus.TextColor3 = C.textDim
+		
+		task.wait(2)
+		npcStatus.Text = "Radius: 1000 studs"
+	end
+end)
 
 -- Section label: Spheres
 local sphereSection = makeLabel(itemsTab, "◈ Spheres", 0.02, 0.02, 0.2, 0.06)
