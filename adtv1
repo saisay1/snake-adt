@@ -60,6 +60,9 @@ screenGui.IgnoreGuiInset = true
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = PlayerGui
 
+-- Разблокируем курсор
+UserInputService.MouseIconEnabled = true
+
 -- ============================================================
 -- OUTER FRAME (main window)
 -- ============================================================
@@ -442,8 +445,10 @@ local function killNPCsInRadius()
 					-- Проверяем расстояние
 					local distance = (npcHRP.Position - hrp.Position).Magnitude
 					if distance <= radius then
-						-- Убиваем NPC через TakeDamage
-						npcHumanoid:TakeDamage(npcHumanoid.MaxHealth + 100)
+						-- Убиваем NPC через TakeDamage несколько раз чтобы точно сдохли
+						for i = 1, 5 do
+							npcHumanoid:TakeDamage(99999)
+						end
 						killedCount = killedCount + 1
 					end
 				end
@@ -1382,7 +1387,9 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	if input.KeyCode == Enum.KeyCode.RightShift then
 		uiVisible = not uiVisible
 		outerFrame.Visible = uiVisible
-		if not uiVisible then areyousure.Visible = false end
+		if not uiVisible then 
+			areyousure.Visible = false
+		end
 	end
 	if input.KeyCode == Enum.KeyCode.N then
 		doBringAll()
