@@ -442,12 +442,8 @@ local function killNPCsInRadius()
 					-- Проверяем расстояние
 					local distance = (npcHRP.Position - hrp.Position).Magnitude
 					if distance <= radius then
-						-- Убиваем NPC - ломаем шею (самый простой и эффективный способ)
-						local head = obj:FindFirstChild("Head")
-						if head then
-							head:Destroy()
-						end
-						npcHumanoid:Destroy()
+						-- Убиваем NPC через TakeDamage
+						npcHumanoid:TakeDamage(npcHumanoid.MaxHealth + 100)
 						killedCount = killedCount + 1
 					end
 				end
