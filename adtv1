@@ -445,10 +445,8 @@ local function killNPCsInRadius()
 					-- Проверяем расстояние
 					local distance = (npcHRP.Position - hrp.Position).Magnitude
 					if distance <= radius then
-						-- Убиваем NPC через TakeDamage несколько раз чтобы точно сдохли
-						for i = 1, 5 do
-							npcHumanoid:TakeDamage(99999)
-						end
+						-- Наносим урон NPC один раз (цикл будет повторяться каждые 3 секунды)
+						npcHumanoid:TakeDamage(9999999)
 						killedCount = killedCount + 1
 					end
 				end
@@ -475,7 +473,7 @@ killNPCsButton.Activated:Connect(function()
 				if killed > 0 then
 					npcStatus.Text = "✔ Убито NPCs: " .. killed
 				end
-				task.wait(0.5)  -- Проверяем каждые 0.5 секунды
+				task.wait(3)  -- Проверяем каждые 3 секунды
 			end
 		end)
 	else
